@@ -35,12 +35,18 @@
 
 #define MAX_MOTOR_PWM 255
 
+//Define a fake number to test our single load cell system.
+#define FAKE_LOAD_TENSION_VAL 1000.0
+
 /****************************************Variables****************************************/
 
 //Define variables for load cell reading & calibration factor.
 double reading; // load cell value
 double timeVar; // variable to track time
 float calibration_factor = -8.5e4;
+
+double scaleVal = 0.5;
+double scaledTensionHandle;
 
 //Object for scale.
 HX711 scale;
@@ -85,15 +91,18 @@ void setup() {
 }
 
 void loop() {
-  // Set reference time
-  timeVar = micros()/1e6;
+  //Scale the value of the tension from the handle.
+  scaledTensionHandle = scaleVal * FAKE_LOAD_TENSION_VAL;
 
   // Get reading from scale and print to serial monitor
   reading = -scale.get_units(10);
-  // Serial.print("dt (s): ");
-  // Serial.print(micros()/1e6 - timeVar, 6);
-  // Serial.print(" Load (g): ");
   Serial.println(reading*1000, 12);
+  Serial.print("Error: ");
+  Serial.println(scaledTensionHandle - reading*1000, 12);
+  
+  //Adjust the motor based on the read handle sensor data.
+  errorToPWM(calculateError(scaledTensionHandle, reading*1000));
+  //moveMotor(UP, 255);
 }
 
 /****************************************Function Definitions****************************************/
