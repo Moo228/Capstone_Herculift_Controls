@@ -39,7 +39,7 @@
 #define FAKE_LOAD_TENSION_VAL 3000.0
 
 //Define the sample period. This is used for scale.get_units() in the HX711 library.
-
+#define SAMPLE_PERIOD 1
 
 /****************************************Variables****************************************/
 
@@ -108,10 +108,13 @@ void loop() {
   scaledTensionHandle = scaleVal * FAKE_LOAD_TENSION_VAL;
 
   // Get reading from scale and print to serial monitor
-  reading = -scale.get_units(1);
-  Serial.println(reading*1000, 12);
-  Serial.print("Error: ");
-  Serial.println(scaledTensionHandle - reading*1000, 12);
+  reading = -scale.get_units(SAMPLE_PERIOD);
+  // reading = reading * 1000;
+  // Serial.print("Variable_1: ");
+  Serial.print(reading * 1000, 12);
+  Serial.print(",");
+  // Serial.print("Variable_2: ");
+  Serial.println(scaledTensionHandle - reading * 1000, 12);
   
   //Adjust the motor based on the read handle sensor data.
   errorToPWM(calculateError(scaledTensionHandle, reading*1000));
