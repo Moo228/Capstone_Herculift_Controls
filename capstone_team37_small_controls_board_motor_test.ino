@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Capstone Team 37 Code
+//  Capstone Team 37 Control System Code
 //
 //
 //
@@ -36,7 +36,10 @@
 #define MAX_MOTOR_PWM 255
 
 //Define a fake number to test our single load cell system.
-#define FAKE_LOAD_TENSION_VAL 1000.0
+#define FAKE_LOAD_TENSION_VAL 3000.0
+
+//Define the sample period. This is used for scale.get_units() in the HX711 library.
+
 
 /****************************************Variables****************************************/
 
@@ -62,7 +65,17 @@ enum MotorMotion{UP, DOWN, NONE};
 //  dutyCycle- specify the duty cycle to run the motors at.
 void moveMotor(MotorMotion direction, int dutyCycle);
 
-double calculateError(double tensionHandle, double tensionCable);
+//This function simply calculates the difference between the tension measured by the load and the tension measured by the cable. 
+//In other words, the error is the difference between the desired tension (cable value) and the actual tension (scaled load value).
+//The value read by the tension sensor in the handle is scaled down before being passed into this function.
+//Parameters:
+//  scaledTensionHandle- A double to hold the scaled value read in by the force sensor attatched to the load.
+//  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
+double calculateError(double scaledTensionHandle, double tensionCable);
+
+//A function that takes in the error in load and cable tension and converts that into a PWM value for the L298N motor controller.
+//Parameters:
+//  errorVal- the value returned from calculateError().
 void errorToPWM(double errorVal);
 
 /****************************************Main****************************************/
@@ -75,7 +88,7 @@ void setup() {
 
   Serial.begin(9600);
   while (!Serial) {
-   ; //Wait for serial port to connect. Needed for native USB port only
+   ; //Wait for serial port to connect. Needed for native USB port only.
   }
 
   //Initialize communication with scale
@@ -95,14 +108,13 @@ void loop() {
   scaledTensionHandle = scaleVal * FAKE_LOAD_TENSION_VAL;
 
   // Get reading from scale and print to serial monitor
-  reading = -scale.get_units(10);
+  reading = -scale.get_units(1);
   Serial.println(reading*1000, 12);
   Serial.print("Error: ");
   Serial.println(scaledTensionHandle - reading*1000, 12);
   
   //Adjust the motor based on the read handle sensor data.
   errorToPWM(calculateError(scaledTensionHandle, reading*1000));
-  //moveMotor(UP, 255);
 }
 
 /****************************************Function Definitions****************************************/
@@ -124,13 +136,28 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
     }
 }
 
-double calculateError(double tensionHandle, double tensionCable) {
-  return tensionHandle - tensionCable;
+double calculateError(double scaledTensionHandle, double tensionCable) {
+  return scaledTensionHandle - tensionCable;
 }
+
+//                              ||
+// ________________             ||             ________________<- MAX DUTY CYCLE
+//                |\            ||            /|               
+//                | \           ||           / |               
+//                |  \          ||          /  |               
+//                |   \         ||         /   |               
+//                |    \        ||        /    |               
+//                |     \       ||       /     |               
+//                |      \______||______/<-----|----------------- MIN DUTY CYCLE (0)         
+// ===============|======|======||======|======|===============
+//                |      |      ||      |      |
+//             -MOVE  -ERROR          ERROR   MOVE
+//              ZONE   ZONE           ZONE    ZONE 
+//              VAL    VAL            VAL     VAL  
 
 void errorToPWM(double errorVal) {
   if(errorVal < -MOVE_ZONE_VAL){
-    //Move the motor down at the max value when the error value is two negetive.
+    //Move the motor down at the max value when the error value is too negetive.
     moveMotor(DOWN, MAX_MOTOR_PWM);
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL){
     //Move the motor down at a linear rate
