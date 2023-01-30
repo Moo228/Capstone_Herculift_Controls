@@ -1,21 +1,22 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Capstone Team 37 Code
-//
-//
-//
-//
-//
+//  Title: Control System 2D Test Board
+//  Capstone Team: 37 
+//  Authors: Tyler Dickson, Joseph Edmund, Isaac Sorensen
+//  
+//  Description: This is a body of code to test the controls system of the wearable lift 
+//    assist device (Herculift Device) by using a 2D mockup of the system.
+//  
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-/****************************************Include Statements****************************************/
+/****************************************Libraries****************************************/
 
 //Include HX711 Arduino Library (Bogdan Necula & Andreas Motl) for load cell.
 #include "HX711.h"
 
 /****************************************Macros****************************************/
 
-//Per the Arduino nano documentation pins 3, 5, 6, 9, 10, and 11 support pulse width modulation (PWM).
+//Per the Arduino Nano documentation, pins 3, 5, 6, 9, 10, and 11 support pulse width modulation (PWM).
 //The PWM pins 5 and 6 are connected to a 16-bit timer and run at a default frequency of 976.56Hz.
 //The PWM pins 3, and 11 are connected to Timer 0? in the ATmega168p microcontroller chip.
 //The PWM pins 9, and 10 are connected to Timer 2? in the ATmega168p microcontroller chip.
@@ -62,7 +63,17 @@ enum MotorMotion{UP, DOWN, NONE};
 //  dutyCycle- specify the duty cycle to run the motors at.
 void moveMotor(MotorMotion direction, int dutyCycle);
 
-double calculateError(double tensionHandle, double tensionCable);
+//This function simply calculates the difference between the tension measured by the load and the tension measured by the cable. 
+//In other words, the error is the difference between the desired tension (cable value) and the actual tension (scaled load value).
+//The value read by the tension sensor in the handle is scaled down before being passed into this function.
+//Parameters:
+//  scaledTensionHandle- A double to hold the scaled value read in by the force sensor attatched to the load.
+//  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
+double calculateError(double scaledTensionHandle, double tensionCable);
+
+//A function that takes in the error in load and cable tension and converts that into a PWM value for the L298N motor controller.
+//Parameters:
+//  errorVal- the value returned from calculateError().
 void errorToPWM(double errorVal);
 
 /****************************************Main****************************************/
@@ -124,22 +135,48 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
     }
 }
 
-double calculateError(double tensionHandle, double tensionCable) {
-  return tensionHandle - tensionCable;
+double calculateError(double scaledTensionHandle, double tensionCable) {
+  return scaledTensionHandle - tensionCable;
 }
 
+//                              ||
+// ________________             ||             ________________<- MAX DUTY CYCLE
+//                |\            ||            /|               
+//                | \           ||           / |               
+//                |  \          ||          /  |               
+//                |   \         ||         /   |               
+//                |    \        ||        /    |               
+//                |     \       ||       /     |               
+//                |      \______||______/<-----|----------------- MIN DUTY CYCLE (0)         
+// ===============|======|======||======|======|===============
+//                |      |      ||      |      |
+//             -MOVE  -ERROR          ERROR   MOVE
+//              ZONE   ZONE           ZONE    ZONE 
+//              VAL    VAL            VAL     VAL  
+
+//map(value, fromLow, fromHigh, toLow, toHigh)
+//Parameters
+//  value- the number to map.
+//  fromLow- the lower bound of the value's current range.
+//  fromHigh- the upper bound of the value's current range.
+//  toLow- the lower bound of the value's target range.
+//  toHigh- the upper bound of the value's target range.
+
 void errorToPWM(double errorVal) {
-  if(errorVal < -MOVE_ZONE_VAL){
-    //Move the motor down at the max value when the error value is two negetive.
+  if(errorVal < -MOVE_ZONE_VAL) {
+    //Move the motor down at the max value when the error value is too negetive (Safety feature to prevent excessive motor speed).
     moveMotor(DOWN, MAX_MOTOR_PWM);
-  } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL){
-    //Move the motor down at a linear rate
-    moveMotor(DOWN, map(abs(errorVal), ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
-  } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL){
+  } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
+    //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
+    moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
+  } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
+    //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
     moveMotor(NONE, 0);
-  } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL){
-    moveMotor(UP, map(abs(errorVal), ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
+  } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
+    //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
+    moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
   } else {
+    //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
     moveMotor(UP, MAX_MOTOR_PWM);
   }
 }
