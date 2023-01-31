@@ -26,9 +26,13 @@
 #define MOTOR_FORWARD_PIN 5
 #define MOTOR_BACKWARD_PIN 6
 
-//Pins for HX711 breakout board.
+//Pins for HX711 breakout board for the load.
 #define LOAD_DT 2
 #define LOAD_SCK 3
+
+//Pins for HX711 breakout board for the cable.
+#define CABLE_DT 7
+#define CABLE_SCK 8
 
 //Define values in which errorToPWM() will change functionality.
 #define ERROR_ZONE_VAL 100
@@ -39,21 +43,29 @@
 //Define a fake number to test our single load cell system.
 #define FAKE_LOAD_TENSION_VAL 3000.0
 
-//Define the sample period. This is used for scale.get_units() in the HX711 library.
+//Define the sample period. This is used for load_scale.get_units() in the HX711 library.
 #define SAMPLE_PERIOD 1
+
+//Define a number to use as the scaled value of the load tension.
+#define WEIGHT_ASSIST_FACTOR 0.5
+
+//A constant to calibrate the load cells to correct values.
+#define LOAD_CALIBRATION_FACTOR -8.5e4
+#define CABLE_CALIBRATION_FACTOR -8.5e4
 
 /****************************************Variables****************************************/
 
-//Define variables for load cell reading & calibration factor.
-double reading; // load cell value
+//Define variables for load cell readings & calibration factors.
+double load_scale_reading; // load cell value
+double cable_scale_reading; // load cell value
 double timeVar; // variable to track time
-float calibration_factor = -8.5e4;
 
-double scaleVal = 0.5;
+//Create a variable to hold the value of the weight of the load. It will be scaled by WEIGHT_ASSIST_FACTOR.
 double scaledTensionHandle;
 
-//Object for scale.
-HX711 scale;
+//Object for the load cells for the cable and handle.
+HX711 load_scale;
+HX711 cable_scale;
 
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
@@ -92,33 +104,39 @@ void setup() {
    ; //Wait for serial port to connect. Needed for native USB port only.
   }
 
-  //Initialize communication with scale
-  scale.begin(LOAD_DT, LOAD_SCK);
+  //Initialize communication with the load and cable scales.
+  load_scale.begin(LOAD_DT, LOAD_SCK);
+  cable_scale.begin(CABLE_DT, CABLE_SCK);
 
-  //Zero scale when first starting
-  scale.tare();
+  //Zero both scales when first starting
+  load_scale.tare();
+  cable_scale.tare();
 
-  //Apply calibration factor to scale and print to serial monitor
-  scale.set_scale(calibration_factor);
-  Serial.print("Calibration factor: ");
-  Serial.println(calibration_factor);
+  //Apply calibration factor to load and cable scales and print to serial monitor.
+  load_scale.set_scale(LOAD_CALIBRATION_FACTOR);
+  cable_scale.set_scale(CABLE_CALIBRATION_FACTOR);
+  Serial.print("Load calibration factor: ");
+  Serial.println(LOAD_CALIBRATION_FACTOR);
 }
 
 void loop() {
-  //Scale the value of the tension from the handle.
-  scaledTensionHandle = scaleVal * FAKE_LOAD_TENSION_VAL;
+  //Get reading from the scales and print to serial monitor.
+  load_scale_reading = -load_scale.get_units(SAMPLE_PERIOD);
+  cable_scale_reading = -cable_scale.get_units(SAMPLE_PERIOD);
 
-  // Get reading from scale and print to serial monitor
-  reading = -scale.get_units(SAMPLE_PERIOD);
-  // reading = reading * 1000;
-  // Serial.print("Variable_1: ");
-  Serial.print(reading * 1000, 12);
+  //Scale the value of the tension from the handle.
+  scaledTensionHandle = WEIGHT_ASSIST_FACTOR * load_scale_reading;
+  
+  // load_scale_reading = load_scale_reading * 1000;
+  // cable_scale_reading = cable_scale_reading * 1000;
+  Serial.print(load_scale_reading * 1000);
   Serial.print(",");
-  // Serial.print("Variable_2: ");
-  Serial.println(scaledTensionHandle - reading * 1000, 12);
+  Serial.print(cable_scale_reading * 1000);
+  Serial.print(",");
+  Serial.println(scaledTensionHandle - cable_scale_reading * 1000);
   
   //Adjust the motor based on the read handle sensor data.
-  errorToPWM(calculateError(scaledTensionHandle, reading*1000));
+  errorToPWM(calculateError(scaledTensionHandle, cable_scale_reading*1000));
 }
 
 /****************************************Function Definitions****************************************/
@@ -173,13 +191,15 @@ void errorToPWM(double errorVal) {
     moveMotor(DOWN, MAX_MOTOR_PWM);
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
-    moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
+    // moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
+    moveMotor(DOWN, 125);
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
     moveMotor(NONE, 0);
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
-    moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
+    // moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
+    moveMotor(UP, 125);
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
     moveMotor(UP, MAX_MOTOR_PWM);
