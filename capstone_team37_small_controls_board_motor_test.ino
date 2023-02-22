@@ -23,8 +23,8 @@
 //This will be important for modifying the default frequencies supported by the PWM pins (controlled by the timers).
 
 //Pins connected to L298N motor controller.
-#define MOTOR_FORWARD_PIN 5
-#define MOTOR_BACKWARD_PIN 6
+#define MOTOR_PWM_INPUT_PIN 5
+#define MOTOR_DIRECTION_PIN 6
 
 //Pins for HX711 breakout board for the load.
 #define LOAD_DT 2
@@ -96,8 +96,8 @@ void errorToPWM(double errorVal);
 void setup() {
   //Set the pins as output.
   //These pins will control the motors by interfacing with the L298N Motor controller.
-  pinMode(MOTOR_FORWARD_PIN, OUTPUT);
-  pinMode(MOTOR_BACKWARD_PIN, OUTPUT);
+  pinMode(MOTOR_PWM_INPUT_PIN, OUTPUT);
+  pinMode(MOTOR_DIRECTION_PIN, OUTPUT);
 
   Serial.begin(9600);
   while (!Serial) {
@@ -144,16 +144,19 @@ void loop() {
 void moveMotor(MotorMotion direction, int dutyCycle) {
     switch (direction) {
       case UP:
-        analogWrite(MOTOR_FORWARD_PIN, dutyCycle);
-        analogWrite(MOTOR_BACKWARD_PIN, 0);
+        //When going UP put the direction pin of the motor control driver low.
+        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
         break;
       case DOWN:
-        analogWrite(MOTOR_FORWARD_PIN, 0);
-        analogWrite(MOTOR_BACKWARD_PIN, dutyCycle);
+        //When going UP put the direction pin of the motor control driver HIGH.
+        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
         break;
       case NONE:
-        analogWrite(MOTOR_FORWARD_PIN, 0);
-        analogWrite(MOTOR_BACKWARD_PIN, 0);
+        //It shouldn't matter what value the direction pin of the motor control driver is so just make it LOW.
+        analogWrite(MOTOR_PWM_INPUT_PIN, 0);
+        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
         break;
     }
 }
