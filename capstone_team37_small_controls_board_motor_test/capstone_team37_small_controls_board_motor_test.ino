@@ -156,7 +156,7 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
       case NONE:
         //The driver naturally pulls the pin high so put the direction pin HIGH.
         analogWrite(MOTOR_PWM_INPUT_PIN, 0);
-        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
+        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
         break;
     }
 }
