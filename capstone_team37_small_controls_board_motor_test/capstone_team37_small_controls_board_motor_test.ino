@@ -24,7 +24,7 @@
 
 //Pins connected to L298N motor controller.
 #define MOTOR_PWM_INPUT_PIN 5
-#define MOTOR_DIRECTION_PIN 6
+#define MOTOR_DIRECTION_PIN 12
 
 //Pins for HX711 breakout board for the load.
 #define LOAD_DT 2
@@ -144,7 +144,7 @@ void loop() {
 void moveMotor(MotorMotion direction, int dutyCycle) {
     switch (direction) {
       case UP:
-        //When going UP put the direction pin of the motor control driver low.
+        //When going UP put the direction pin of the motor control driver LOW.
         analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
         digitalWrite(MOTOR_DIRECTION_PIN, LOW);
         break;
@@ -154,9 +154,9 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
         digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
         break;
       case NONE:
-        //It shouldn't matter what value the direction pin of the motor control driver is so just make it LOW.
+        //The driver naturally pulls the pin high so put the direction pin HIGH.
         analogWrite(MOTOR_PWM_INPUT_PIN, 0);
-        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
+        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
         break;
     }
 }
