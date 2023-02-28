@@ -74,6 +74,12 @@ HX711 cable_scale;
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
 
+//Create a struct to hold the PWM and direction values. This is used as the return value for the errorToPWM function.
+struct DirectionPWM {
+  bool direction;
+  int PWM;
+};
+
 /****************************************Function Declarations****************************************/
 
 //This function wraps the logic of motor control into a simple command.
