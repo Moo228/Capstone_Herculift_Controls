@@ -38,7 +38,7 @@
 #define ERROR_ZONE_VAL 100
 #define MOVE_ZONE_VAL 5000
 
-#define MAX_MOTOR_PWM 255
+#define MAX_MOTOR_PWM 20
 
 //Define a fake number to test our single load cell system.
 #define FAKE_LOAD_TENSION_VAL 3000.0
