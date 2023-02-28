@@ -38,10 +38,14 @@
 #define ERROR_ZONE_VAL 100
 #define MOVE_ZONE_VAL 5000
 
-#define MAX_MOTOR_PWM 255
+//From measuring the motor RPM as a function of PWM we found that a PWM of 100 resulted in an RPM of 240
+#define MAX_MOTOR_PWM 100
+
+//From measuring the motor RPM as a function of PWM we found that a PWM of 10 was the minimum to get the motor to spin (unloaded).
+#define MIN_MOTOR_PWM 10
 
 //Define a fake number to test our single load cell system.
-#define FAKE_LOAD_TENSION_VAL 3000.0
+// #define FAKE_LOAD_TENSION_VAL 3000.0
 
 //Define the sample period. This is used for load_scale.get_units() in the HX711 library.
 #define SAMPLE_PERIOD 1
@@ -173,7 +177,7 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
 //                |   \         ||         /   |               
 //                |    \        ||        /    |               
 //                |     \       ||       /     |               
-//                |      \______||______/<-----|----------------- MIN DUTY CYCLE (0)         
+//                |      \______||______/<-----|----------------- MIN DUTY CYCLE (10)         
 // ===============|======|======||======|======|===============
 //                |      |      ||      |      |
 //             -MOVE  -ERROR          ERROR   MOVE
@@ -194,15 +198,15 @@ void errorToPWM(double errorVal) {
     moveMotor(DOWN, MAX_MOTOR_PWM);
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
-    // moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
-    moveMotor(DOWN, 125);
+    moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, MIN_MOTOR_PWM));
+    // moveMotor(DOWN, 125);
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
     moveMotor(NONE, 0);
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
-    // moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
-    moveMotor(UP, 125);
+    moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, MIN_MOTOR_PWM, MAX_MOTOR_PWM));
+    // moveMotor(UP, 125);
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
     moveMotor(UP, MAX_MOTOR_PWM);
