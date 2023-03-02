@@ -38,7 +38,7 @@
 #define ERROR_ZONE_VAL 100
 #define MOVE_ZONE_VAL 5000
 
-#define MAX_MOTOR_PWM 30
+#define MAX_MOTOR_PWM 200
 
 //Define a fake number to test our single load cell system.
 #define FAKE_LOAD_TENSION_VAL 3000.0
@@ -58,7 +58,10 @@
 //Define variables for load cell readings & calibration factors.
 double load_scale_reading; // load cell value
 double cable_scale_reading; // load cell value
-double timeVar; // variable to track time
+
+unsigned long timeVar; // variable to track time
+unsigned long timeSeconds;
+unsigned int period;
 
 //Create a variable to hold the value of the weight of the load. It will be scaled by WEIGHT_ASSIST_FACTOR.
 double scaledTensionHandle;
@@ -98,45 +101,28 @@ void setup() {
   //These pins will control the motors by interfacing with the L298N Motor controller.
   pinMode(MOTOR_PWM_INPUT_PIN, OUTPUT);
   pinMode(MOTOR_DIRECTION_PIN, OUTPUT);
-
-  Serial.begin(9600);
-  while (!Serial) {
-   ; //Wait for serial port to connect. Needed for native USB port only.
-  }
-
-  //Initialize communication with the load and cable scales.
-  load_scale.begin(LOAD_DT, LOAD_SCK);
-  cable_scale.begin(CABLE_DT, CABLE_SCK);
-
-  //Zero both scales when first starting
-  load_scale.tare();
-  cable_scale.tare();
-
-  //Apply calibration factor to load and cable scales and print to serial monitor.
-  load_scale.set_scale(LOAD_CALIBRATION_FACTOR);
-  cable_scale.set_scale(CABLE_CALIBRATION_FACTOR);
-  Serial.print("Load calibration factor: ");
-  Serial.println(LOAD_CALIBRATION_FACTOR);
 }
 
 void loop() {
-  //Get reading from the scales and print to serial monitor.
-  load_scale_reading = -load_scale.get_units(SAMPLE_PERIOD);
-  cable_scale_reading = -cable_scale.get_units(SAMPLE_PERIOD);
+  //Get the current uptime in milliseconds
+  timeVar = millis();
 
-  //Scale the value of the tension from the handle.
-  scaledTensionHandle = WEIGHT_ASSIST_FACTOR * load_scale_reading;
-  
-  // load_scale_reading = load_scale_reading * 1000;
-  // cable_scale_reading = cable_scale_reading * 1000;
-  Serial.print(load_scale_reading * 1000);
-  Serial.print(",");
-  Serial.print(cable_scale_reading * 1000);
-  Serial.print(",");
-  Serial.println(calculateError(scaledTensionHandle, cable_scale_reading * 1000));
-  
-  //Adjust the motor based on the read handle sensor data.
-  errorToPWM(calculateError(scaledTensionHandle, cable_scale_reading*1000));
+  //convert timeVar from milliseconds to seconds.
+  timeSeconds = timeVar / 1000;
+
+  //divide the time into periods of 4 seconds.
+  period = timeSeconds % 4;
+
+  switch (period) {
+    case 0: case 1:
+      //for the first 2 seconds move UP.
+      moveMotor(UP, MAX_MOTOR_PWM);
+      break;
+    case 2: case 3:
+      //for the last 2 seconds move down.
+      moveMotor(DOWN, MAX_MOTOR_PWM);
+      break;
+  }
 }
 
 /****************************************Function Definitions****************************************/
@@ -192,25 +178,19 @@ void errorToPWM(double errorVal) {
   if(errorVal < -MOVE_ZONE_VAL) {
     //Move the motor down at the max value when the error value is too negetive (Safety feature to prevent excessive motor speed).
     moveMotor(DOWN, MAX_MOTOR_PWM);
-    Serial.println("MAX DOWN regime");
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
     // moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
     moveMotor(DOWN, 30);
-    Serial.println("DOWN regime");
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
     moveMotor(NONE, 0);
-    Serial.println("NONE regime");
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
     // moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
     moveMotor(UP, 30);
-    Serial.println("UP regime");
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
     moveMotor(UP, MAX_MOTOR_PWM);
-    Serial.println("MAX UP regime");
-
   }
 }
