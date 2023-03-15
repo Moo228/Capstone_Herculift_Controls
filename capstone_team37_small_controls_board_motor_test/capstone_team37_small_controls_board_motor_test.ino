@@ -133,7 +133,7 @@ void loop() {
   Serial.print(",");
   Serial.print(cable_scale_reading * 1000);
   Serial.print(",");
-  Serial.println(calculateError(scaledTensionHandle, cable_scale_reading * 1000));
+  Serial.println(calculateError(scaledTensionHandle * 1000, cable_scale_reading * 1000));
   
   //Adjust the motor based on the read handle sensor data.
   errorToPWM(calculateError(scaledTensionHandle, cable_scale_reading*1000));
