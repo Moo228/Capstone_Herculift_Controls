@@ -22,20 +22,23 @@
 //This will be important for modifying the default frequencies supported by the PWM pins (controlled by the timers).
 
 //Pins connected to L298N motor controller.
+#define MOTOR_DIRECTION_PIN 2
+#define ENABLE_PIN 3
+#define READY_PIN 4
 #define MOTOR_PWM_INPUT_PIN 5
-#define MOTOR_DIRECTION_PIN 12
 
-//Pin for strain gauge amplifier for the load. Pin 16 corresponds to pin A2.
-#define INPUT_PIN_LOAD 16
 
-//Pin for strain gauge amplifier for the cable. Pin 17 corresponds to pin A3.
-#define INPUT_PIN_CABLE 17
+//Pin for strain gauge amplifier for the load. Pin 16 corresponds to pin A3.
+#define INPUT_PIN_LOAD 17
+
+//Pin for strain gauge amplifier for the cable. Pin 17 corresponds to pin A2.
+#define INPUT_PIN_CABLE 16
 
 //Define values in which errorToPWM() will change functionality.
 #define ERROR_ZONE_VAL 0.05
 #define MOVE_ZONE_VAL 0.50
 
-#define MAX_MOTOR_PWM 30
+#define MAX_MOTOR_PWM 128
 
 //Define the sample period. This is used for load_scale.get_units() in the HX711 library.
 #define SAMPLE_PERIOD 1
@@ -84,6 +87,13 @@ void setup() {
   //These pins will control the motors by interfacing with the L298N Motor controller.
   pinMode(MOTOR_PWM_INPUT_PIN, OUTPUT);
   pinMode(MOTOR_DIRECTION_PIN, OUTPUT);
+  pinMode(ENABLE_PIN, OUTPUT);
+
+  //Set the enable pin high.
+  digitalWrite(ENABLE_PIN, HIGH);
+
+  //Set the direction pin high.
+  digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
 
   Serial.begin(9600);
   while (!Serial) {
@@ -95,20 +105,24 @@ void setup() {
 void loop() {
   unsigned long startTime = millis(); // Record the start time
   
+  //Read and normalize the values from the strain gauges.
   load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
   cable_scale_reading = analogRead(INPUT_PIN_CABLE)/1023.0;
 
   //Scale the value of the tension from the handle.
-  scaledTensionHandle = WEIGHT_ASSIST_FACTOR * load_scale_reading;
-  
+  // scaledTensionHandle = WEIGHT_ASSIST_FACTOR * load_scale_reading;
+
+  Serial.print("Load:");
   Serial.print(load_scale_reading, 3);
-  Serial.print(",");
+  Serial.print(", ");
+  Serial.print("Cable:");
   Serial.print(cable_scale_reading, 3);
-  Serial.print(",");
-  Serial.println(calculateError(scaledTensionHandle, cable_scale_reading));
+  Serial.print(", ");
+  Serial.print("Error:");
+  Serial.println(calculateError(load_scale_reading, cable_scale_reading));
   
   //Adjust the motor based on the read handle sensor data.
-  errorToPWM(calculateError(scaledTensionHandle, cable_scale_reading));
+  errorToPWM(calculateError(load_scale_reading, cable_scale_reading));
 
   delayMicroseconds(200); // Wait and increase the sampling rate
 }
@@ -136,7 +150,7 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
 }
 
 double calculateError(double scaledTensionHandle, double tensionCable) {
-  return scaledTensionHandle - tensionCable;
+  return WEIGHT_ASSIST_FACTOR * scaledTensionHandle - tensionCable;
 }
 //                              PWM
 //                              ||
@@ -170,7 +184,7 @@ void errorToPWM(double errorVal) {
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
     // moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
-    moveMotor(DOWN, 30);
+    moveMotor(DOWN, 50);
     // Serial.println("DOWN regime");
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
@@ -179,7 +193,7 @@ void errorToPWM(double errorVal) {
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
     // moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
-    moveMotor(UP, 30);
+    moveMotor(UP, 50);
     // Serial.println("UP regime");
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
