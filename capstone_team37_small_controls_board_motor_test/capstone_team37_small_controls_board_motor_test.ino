@@ -35,7 +35,7 @@
 #define INPUT_PIN_CABLE 16
 
 //Define values in which errorToPWM() will change functionality.
-#define ERROR_ZONE_VAL 0.05
+#define ERROR_ZONE_VAL 0
 #define MOVE_ZONE_VAL 0.50
 
 #define MAX_MOTOR_PWM 128
@@ -60,6 +60,15 @@ double scaledTensionHandle;
 enum MotorMotion{UP, DOWN, NONE};
 
 /****************************************Function Declarations****************************************/
+
+// This is the built-in Arduno map function but with the double data type instead of the long data type.
+//Parameters:
+//  x- the number to map.
+//  in_min- the lower bound of the value's current range.
+//  in_max- the upper bound of the value's current range.
+//  out_in- the lower bound of the value's target range.
+//  out_max- the upper bound of the value's target range.
+double mapDouble(double x, double in_min, double in_max, double out_min, double out_max);
 
 //This function wraps the logic of motor control into a simple command.
 //Parameters:
@@ -105,7 +114,7 @@ void setup() {
 void loop() {
   unsigned long startTime = millis(); // Record the start time
   
-  //Read and normalize the values from the strain gauges.
+  //Read and normalize the values from the strain gauges. A decimal percentage of 
   load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
   cable_scale_reading = analogRead(INPUT_PIN_CABLE)/1023.0;
 
@@ -128,6 +137,11 @@ void loop() {
 }
 
 /****************************************Function Definitions****************************************/
+
+double mapDouble(double x, double in_min, double in_max, double out_min, double out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 void moveMotor(MotorMotion direction, int dutyCycle) {
     switch (direction) {
@@ -168,14 +182,6 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
 //              ZONE   ZONE           ZONE    ZONE 
 //              VAL    VAL            VAL     VAL  
 
-//map(value, fromLow, fromHigh, toLow, toHigh)
-//Parameters
-//  value- the number to map.
-//  fromLow- the lower bound of the value's current range.
-//  fromHigh- the upper bound of the value's current range.
-//  toLow- the lower bound of the value's target range.
-//  toHigh- the upper bound of the value's target range.
-
 void errorToPWM(double errorVal) {
   if(errorVal < -MOVE_ZONE_VAL) {
     //Move the motor down at the max value when the error value is too negetive (Safety feature to prevent excessive motor speed).
@@ -183,7 +189,10 @@ void errorToPWM(double errorVal) {
     // Serial.println("MAX DOWN regime");
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
-    moveMotor(DOWN, map(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0));
+    double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0);
+    // Serial.
+    // Serial.print(mappedDouble);
+    moveMotor(DOWN,mappedDouble);
     // moveMotor(DOWN, 50);
     // Serial.println("DOWN regime");
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
@@ -192,8 +201,10 @@ void errorToPWM(double errorVal) {
     // Serial.println("NONE regime");
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
-    // moveMotor(UP, map(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM));
-    moveMotor(UP, 50);
+    double mappedDouble = mapDouble(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM);
+    // Serial.print(mappedDouble);
+    moveMotor(UP, mappedDouble);
+    // moveMotor(UP, 50);
     // Serial.println("UP regime");
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
