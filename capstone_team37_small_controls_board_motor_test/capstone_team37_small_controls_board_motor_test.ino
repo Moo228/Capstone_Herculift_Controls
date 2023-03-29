@@ -59,6 +59,9 @@ double scaledTensionHandle;
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
 
+//Enum to categorize the motor movement regime.
+enum MovementRegime{MAX_UP_REGIME, UP_REGIME, NONE_REGIME, DOWN_REGIME, MAX_DOWN_REGIME};
+
 /****************************************Function Declarations****************************************/
 
 // This is the built-in Arduno map function but with the double data type instead of the long data type.
@@ -85,9 +88,10 @@ void moveMotor(MotorMotion direction, int dutyCycle);
 double calculateError(double scaledTensionHandle, double tensionCable);
 
 //A function that takes in the error in load and cable tension and converts that into a PWM value for the L298N motor controller.
+//It returns an enumerated type that allows for diagnosis of which part of the function is being called.
 //Parameters:
 //  errorVal- the value returned from calculateError().
-void errorToPWM(double errorVal);
+enum MovementRegime errorToPWM(double errorVal);
 
 /****************************************Main****************************************/
 
@@ -112,7 +116,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long startTime = millis(); // Record the start time
+  // unsigned long startTime = millis(); // Record the start time
   
   //Read and normalize the values from the strain gauges. A decimal percentage of 
   load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
@@ -128,12 +132,14 @@ void loop() {
   Serial.print(cable_scale_reading, 3);
   Serial.print(", ");
   Serial.print("Error:");
-  Serial.println(calculateError(load_scale_reading, cable_scale_reading));
+  Serial.print(calculateError(load_scale_reading, cable_scale_reading));
   
   //Adjust the motor based on the read handle sensor data.
-  errorToPWM(calculateError(load_scale_reading, cable_scale_reading));
+  enum MovementRegime movementRegime = errorToPWM(calculateError(load_scale_reading, cable_scale_reading));
+  Serial.print(", ");
+  Serial.println((double) movementRegime/10.0);
 
-  delayMicroseconds(200); // Wait and increase the sampling rate
+  // delayMicroseconds(200); // Wait and increase the sampling rate
 }
 
 /****************************************Function Definitions****************************************/
@@ -182,11 +188,12 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
 //              ZONE   ZONE           ZONE    ZONE 
 //              VAL    VAL            VAL     VAL  
 
-void errorToPWM(double errorVal) {
+ enum MovementRegime errorToPWM(double errorVal) {
   if(errorVal < -MOVE_ZONE_VAL) {
     //Move the motor down at the max value when the error value is too negetive (Safety feature to prevent excessive motor speed).
     moveMotor(DOWN, MAX_MOTOR_PWM);
     // Serial.println("MAX DOWN regime");
+    return MAX_UP_REGIME;
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
     double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0);
@@ -195,10 +202,12 @@ void errorToPWM(double errorVal) {
     moveMotor(DOWN,mappedDouble);
     // moveMotor(DOWN, 50);
     // Serial.println("DOWN regime");
+    return UP_REGIME;
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
     moveMotor(NONE, 0);
     // Serial.println("NONE regime");
+    return NONE_REGIME;
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
     double mappedDouble = mapDouble(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM);
@@ -206,9 +215,11 @@ void errorToPWM(double errorVal) {
     moveMotor(UP, mappedDouble);
     // moveMotor(UP, 50);
     // Serial.println("UP regime");
+    return DOWN_REGIME;
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
     moveMotor(UP, MAX_MOTOR_PWM);
     // Serial.println("MAX UP regime");
+    return MAX_DOWN_REGIME;
   }
 }
