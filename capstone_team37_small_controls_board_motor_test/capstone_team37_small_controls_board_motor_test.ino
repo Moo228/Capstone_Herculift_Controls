@@ -39,12 +39,13 @@
 #define MOVE_ZONE_VAL 0.50
 
 #define MAX_MOTOR_PWM 128
+#define MIN_MOTOR_PWM 40
 
 //Define the sample period. This is used for load_scale.get_units() in the HX711 library.
-#define SAMPLE_PERIOD 1
+// #define SAMPLE_PERIOD 1
 
 //Define a number to use as the scaled value of the load tension.
-#define WEIGHT_ASSIST_FACTOR 0.5
+#define WEIGHT_ASSIST_FACTOR 1.0
 
 /****************************************Variables****************************************/
 
@@ -137,6 +138,7 @@ void loop() {
   //Adjust the motor based on the read handle sensor data.
   enum MovementRegime movementRegime = errorToPWM(calculateError(load_scale_reading, cable_scale_reading));
   Serial.print(", ");
+  Serial.print("Regime:");
   Serial.println((double) movementRegime/10.0);
 
   // delayMicroseconds(200); // Wait and increase the sampling rate
@@ -196,7 +198,7 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
     return MAX_UP_REGIME;
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
-    double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, 0);
+    double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, MIN_MOTOR_PWM);
     // Serial.
     // Serial.print(mappedDouble);
     moveMotor(DOWN,mappedDouble);
@@ -210,7 +212,7 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
     return NONE_REGIME;
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
-    double mappedDouble = mapDouble(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, 0, MAX_MOTOR_PWM);
+    double mappedDouble = mapDouble(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, MIN_MOTOR_PWM, MAX_MOTOR_PWM);
     // Serial.print(mappedDouble);
     moveMotor(UP, mappedDouble);
     // moveMotor(UP, 50);
