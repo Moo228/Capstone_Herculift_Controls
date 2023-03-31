@@ -38,14 +38,14 @@
 #define ERROR_ZONE_VAL 0.05
 #define MOVE_ZONE_VAL 0.25
 
-#define MAX_MOTOR_PWM 128
+#define MAX_MOTOR_PWM 150
 #define MIN_MOTOR_PWM 20
 
 //Define the sample period. This is used for load_scale.get_units() in the HX711 library.
 // #define SAMPLE_PERIOD 1
 
 //Define a number to use as the scaled value of the load tension.
-#define WEIGHT_ASSIST_FACTOR 0.3
+#define WEIGHT_ASSIST_FACTOR 0.75
 
 /****************************************Variables****************************************/
 
@@ -102,6 +102,7 @@ void setup() {
   pinMode(MOTOR_PWM_INPUT_PIN, OUTPUT);
   pinMode(MOTOR_DIRECTION_PIN, OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
+  pinMode(READY_PIN, INPUT);
 
   //Set the enable pin high.
   digitalWrite(ENABLE_PIN, HIGH);
