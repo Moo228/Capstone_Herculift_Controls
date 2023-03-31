@@ -35,17 +35,17 @@
 #define INPUT_PIN_CABLE 16
 
 //Define values in which errorToPWM() will change functionality.
-#define ERROR_ZONE_VAL 0
-#define MOVE_ZONE_VAL 0.50
+#define ERROR_ZONE_VAL 0.05
+#define MOVE_ZONE_VAL 0.25
 
 #define MAX_MOTOR_PWM 128
-#define MIN_MOTOR_PWM 40
+#define MIN_MOTOR_PWM 20
 
 //Define the sample period. This is used for load_scale.get_units() in the HX711 library.
 // #define SAMPLE_PERIOD 1
 
 //Define a number to use as the scaled value of the load tension.
-#define WEIGHT_ASSIST_FACTOR 1.0
+#define WEIGHT_ASSIST_FACTOR 0.3
 
 /****************************************Variables****************************************/
 
@@ -141,7 +141,7 @@ void loop() {
   Serial.print("Regime:");
   Serial.println((double) movementRegime/10.0);
 
-  // delayMicroseconds(200); // Wait and increase the sampling rate
+  delayMicroseconds(100); // Wait and increase the sampling rate
 }
 
 /****************************************Function Definitions****************************************/
@@ -199,6 +199,9 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
     double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, MIN_MOTOR_PWM);
+                // double mapDouble(double x, double in_min, double in_max, double out_min, double out_max)
+                // return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    
     // Serial.
     // Serial.print(mappedDouble);
     moveMotor(DOWN,mappedDouble);
