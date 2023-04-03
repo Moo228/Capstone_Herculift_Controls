@@ -21,12 +21,11 @@
 //The PWM pins 9, and 10 are connected to Timer 2? in the ATmega168p microcontroller chip.
 //This will be important for modifying the default frequencies supported by the PWM pins (controlled by the timers).
 
-//Pins connected to L298N motor controller.
+//Pins connected to Anaheim Automation motor controller.
 #define MOTOR_DIRECTION_PIN 2
 #define ENABLE_PIN 3
 #define READY_PIN 4
 #define MOTOR_PWM_INPUT_PIN 5
-
 
 //Pin for strain gauge amplifier for the load. Pin 16 corresponds to pin A3.
 #define INPUT_PIN_LOAD 17
@@ -41,12 +40,18 @@
 #define MAX_MOTOR_PWM 150
 #define MIN_MOTOR_PWM 20
 
-//Define the sample period. This is used for load_scale.get_units() in the HX711 library.
-// #define SAMPLE_PERIOD 1
-
 //Define a number to use as the scaled value of the load tension.
 #define WEIGHT_ASSIST_FACTOR 0.75
 
+//Define a value as an artificial load (currently this is the value output by the strain gauges not a specific weight).
+#define ARTIFICIAL_LOAD 0.1
+
+//Define a number to represent the maximum value of a 10-bit number to normalize the output of analogRead() where the strain gauges are connected.
+//It is a double because we want the normalized value to be between 0 and 1.
+#define ADC_MAX_VALUE 1023.0
+
+//Define a number to specify the output resolution in number of decimal places for the serial monitor.
+#define NUM_DISPLAYED_DECIMALS 3
 /****************************************Variables****************************************/
 
 //Define variables for load cell readings & calibration factors.
@@ -55,7 +60,7 @@ double cable_scale_reading; // load cell value
 double timeVar; // variable to track time
 
 //Create a variable to hold the value of the weight of the load. It will be scaled by WEIGHT_ASSIST_FACTOR.
-double scaledTensionHandle;
+// double load;
 
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
@@ -84,9 +89,9 @@ void moveMotor(MotorMotion direction, int dutyCycle);
 //In other words, the error is the difference between the desired tension (cable value) and the actual tension (scaled load value).
 //The value read by the tension sensor in the handle is scaled down before being passed into this function.
 //Parameters:
-//  scaledTensionHandle- A double to hold the scaled value read in by the force sensor attatched to the load.
+//  load- A double to hold the scaled value read in by the force sensor attatched to the load.
 //  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
-double calculateError(double scaledTensionHandle, double tensionCable);
+double calculateError(double load, double tensionCable);
 
 //A function that takes in the error in load and cable tension and converts that into a PWM value for the L298N motor controller.
 //It returns an enumerated type that allows for diagnosis of which part of the function is being called.
@@ -121,17 +126,14 @@ void loop() {
   // unsigned long startTime = millis(); // Record the start time
   
   //Read and normalize the values from the strain gauges. A decimal percentage of 
-  load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
-  cable_scale_reading = analogRead(INPUT_PIN_CABLE)/1023.0;
-
-  //Scale the value of the tension from the handle.
-  // scaledTensionHandle = WEIGHT_ASSIST_FACTOR * load_scale_reading;
+  load_scale_reading = (double) analogRead(INPUT_PIN_LOAD)/ADC_MAX_VALUE;
+  cable_scale_reading = (double) analogRead(INPUT_PIN_CABLE)/ADC_MAX_VALUE;
 
   Serial.print("Load:");
-  Serial.print(load_scale_reading, 3);
+  Serial.print(load_scale_reading, NUM_DISPLAYED_DECIMALS);
   Serial.print(", ");
   Serial.print("Cable:");
-  Serial.print(cable_scale_reading, 3);
+  Serial.print(cable_scale_reading, NUM_DISPLAYED_DECIMALS);
   Serial.print(", ");
   Serial.print("Error:");
   Serial.print(calculateError(load_scale_reading, cable_scale_reading));
@@ -172,8 +174,8 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
     }
 }
 
-double calculateError(double scaledTensionHandle, double tensionCable) {
-  return WEIGHT_ASSIST_FACTOR * scaledTensionHandle - tensionCable;
+double calculateError(double load, double tensionCable) {
+  return ((load + ARTIFICIAL_LOAD) - (1/WEIGHT_ASSIST_FACTOR)*tensionCable)/(load + ARTIFICIAL_LOAD);
 }
 //                              PWM
 //                              ||
@@ -194,37 +196,33 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
  enum MovementRegime errorToPWM(double errorVal) {
   if(errorVal < -MOVE_ZONE_VAL) {
     //Move the motor down at the max value when the error value is too negetive (Safety feature to prevent excessive motor speed).
-    moveMotor(DOWN, MAX_MOTOR_PWM);
+    // moveMotor(DOWN, MAX_MOTOR_PWM);
     // Serial.println("MAX DOWN regime");
     return MAX_UP_REGIME;
   } else if(errorVal > -MOVE_ZONE_VAL && errorVal < -ERROR_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (-MOVE_ZONE_VAL, MAX_MOTOR_PWM) and (-ERROR_ZONE_VAL, 0).
     double mappedDouble = mapDouble(errorVal, -MOVE_ZONE_VAL, -ERROR_ZONE_VAL, MAX_MOTOR_PWM, MIN_MOTOR_PWM);
-                // double mapDouble(double x, double in_min, double in_max, double out_min, double out_max)
-                // return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-    
-    // Serial.
     // Serial.print(mappedDouble);
-    moveMotor(DOWN,mappedDouble);
+    // moveMotor(DOWN,mappedDouble);
     // moveMotor(DOWN, 50);
     // Serial.println("DOWN regime");
     return UP_REGIME;
   } else if(errorVal > -ERROR_ZONE_VAL && errorVal < ERROR_ZONE_VAL) {
     //Stop the motor when errorVal is within a certain margin of error defined by 2 * ERROR_ZONE_VAL.
-    moveMotor(NONE, 0);
+    // moveMotor(NONE, 0);
     // Serial.println("NONE regime");
     return NONE_REGIME;
   } else if(errorVal > ERROR_ZONE_VAL && errorVal < MOVE_ZONE_VAL) {
     //Move the motor down at a linear rate between the (x, y) points (ERROR_ZONE_VAL, 0) and (MOVE_ZONE_VAL, MAX_MOTOR_PWM).
     double mappedDouble = mapDouble(errorVal, ERROR_ZONE_VAL, MOVE_ZONE_VAL, MIN_MOTOR_PWM, MAX_MOTOR_PWM);
     // Serial.print(mappedDouble);
-    moveMotor(UP, mappedDouble);
+    // moveMotor(UP, mappedDouble);
     // moveMotor(UP, 50);
     // Serial.println("UP regime");
     return DOWN_REGIME;
   } else {
     //Move the motor down at the max value when the error value is too positive (Safety feature to prevent excessive motor speed).
-    moveMotor(UP, MAX_MOTOR_PWM);
+    // moveMotor(UP, MAX_MOTOR_PWM);
     // Serial.println("MAX UP regime");
     return MAX_DOWN_REGIME;
   }
