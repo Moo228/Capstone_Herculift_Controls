@@ -101,7 +101,7 @@ double Setpoint, Input, Output_UP, Output_DOWN;
 
 //Specify the links and initial tuning parameters
 double Kp_Up=.75, Kd_Up=0.0, Ki_Up=0.0;
-double Kp_Down=.5, Kd_Down=0.2, Ki_Down=0.0;
+double Kp_Down=.5, Kd_Down=0.0, Ki_Down=0.0;
 PID myPID_UP(&Input, &Output_UP, &Setpoint, Kp_Up, Ki_Up, Kd_Up, DIRECT);
 PID myPID_DOWN(&Input, &Output_DOWN, &Setpoint, Kp_Down, Ki_Down, Kd_Down, REVERSE);
 
