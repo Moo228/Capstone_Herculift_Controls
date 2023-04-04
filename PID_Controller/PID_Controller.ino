@@ -43,7 +43,7 @@
 
 
 //Define a number to use as the scaled value of the load tension.
-#define WEIGHT_ASSIST_FACTOR .75
+#define WEIGHT_ASSIST_FACTOR 0.75
 
 /****************************************Variables****************************************/
 
@@ -52,6 +52,7 @@ double load_scale_reading; // load cell value
 double cable_scale_reading; // load cell value
 double tension_error;       // our defined error value
 double timeVar; // variable to track time
+int currentDirection;
 
 //Create a variable to hold the value of the weight of the load. It will be scaled by WEIGHT_ASSIST_FACTOR.
 double scaledTensionHandle;
@@ -96,11 +97,13 @@ enum MovementRegime errorToPWM(double errorVal);
 /**************************************PID********************************************/
 
 //Define Variables we'll be connecting to
-double Setpoint, Input, Output;
+double Setpoint, Input, Output_UP, Output_DOWN;
 
 //Specify the links and initial tuning parameters
-double Kp=1.0, Kd=1.0, Ki=0.0;
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, REVERSE);
+double Kp_Up=.75, Kd_Up=0.0, Ki_Up=0.0;
+double Kp_Down=.5, Kd_Down=0.2, Ki_Down=0.0;
+PID myPID_UP(&Input, &Output_UP, &Setpoint, Kp_Up, Ki_Up, Kd_Up, DIRECT);
+PID myPID_DOWN(&Input, &Output_DOWN, &Setpoint, Kp_Down, Ki_Down, Kd_Down, REVERSE);
 
 /****************************************Main****************************************/
 
@@ -125,36 +128,45 @@ void setup() {
   analogReference(INTERNAL); // Set the internal reference voltage to 1.1V to increase resolution on force sensors
 
   //Read and normalize the values from the strain gauges. A decimal percentage of 
-  load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
-  cable_scale_reading = analogRead(INPUT_PIN_CABLE)/1023.0;
+  load_scale_reading = analogRead(INPUT_PIN_LOAD);
+  cable_scale_reading = analogRead(INPUT_PIN_CABLE);
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
   
    //initialize the variables we're linked to
-  Input = tension_error;
-  Setpoint = 0;
+  Input = cable_scale_reading;
+  Setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
   //turn the PID on
-  myPID.SetMode(AUTOMATIC);
-  myPID.SetOutputLimits(0,255);
+  myPID_UP.SetMode(AUTOMATIC);
+
+  //turn the PID on
+  myPID_DOWN.SetMode(AUTOMATIC);
 }
 
 void loop() {
   // unsigned long startTime = millis(); // Record the start time
   
   //Read and normalize the values from the strain gauges. A decimal percentage of 
-  load_scale_reading = analogRead(INPUT_PIN_LOAD)/1023.0;
-  cable_scale_reading = analogRead(INPUT_PIN_CABLE)/1023.0;
+  load_scale_reading = analogRead(INPUT_PIN_LOAD);
+  cable_scale_reading = analogRead(INPUT_PIN_CABLE);
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
 
-  Input = tension_error;
+  //Update the variables we're linked to
+  Input = cable_scale_reading;
+  Setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
+
   if (tension_error > 0){
-    digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
+    myPID_UP.Compute();
+    moveMotor(UP,Output_UP);
+    currentDirection = 1;
+    
   }
   else {
-    digitalWrite(MOTOR_DIRECTION_PIN, LOW);
+    myPID_DOWN.Compute();
+    moveMotor(DOWN,Output_DOWN);
+    currentDirection = -1;
   }
   
-  myPID.Compute();
   
 //  analogWrite(PIN_OUTPUT, Output);
 
@@ -168,7 +180,16 @@ void loop() {
   Serial.print(tension_error);
   Serial.print(", ");
   Serial.print("Output:");
-  Serial.println(Output);
+  if (currentDirection == 1){
+    Serial.print(Output_UP);
+  }
+  else{
+    Serial.print(Output_DOWN);
+  }
+  Serial.print(", ");
+  Serial.print("Dir:");
+  Serial.println(currentDirection);
+ 
   
   //Adjust the motor based on the read handle sensor data.
 //  enum MovementRegime movementRegime = errorToPWM(tension_error);
