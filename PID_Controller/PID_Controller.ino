@@ -100,7 +100,7 @@ enum MovementRegime errorToPWM(double errorVal);
 double Setpoint, Input, Output_UP, Output_DOWN;
 
 //Specify the links and initial tuning parameters
-double Kp_Up=.75, Kd_Up=0.0, Ki_Up=0.0;
+double Kp_Up=.5, Kd_Up=0.0, Ki_Up=0.0;
 double Kp_Down=.5, Kd_Down=0.0, Ki_Down=0.0;
 PID myPID_UP(&Input, &Output_UP, &Setpoint, Kp_Up, Ki_Up, Kd_Up, DIRECT);
 PID myPID_DOWN(&Input, &Output_DOWN, &Setpoint, Kp_Down, Ki_Down, Kd_Down, REVERSE);
@@ -178,17 +178,17 @@ void loop() {
   Serial.print(", ");
   Serial.print("Error:");
   Serial.print(tension_error);
-  Serial.print(", ");
-  Serial.print("Output:");
-  if (currentDirection == 1){
-    Serial.print(Output_UP);
-  }
-  else{
-    Serial.print(Output_DOWN);
-  }
-  Serial.print(", ");
-  Serial.print("Dir:");
-  Serial.println(currentDirection);
+////  Serial.print(", ");
+////  Serial.print("Output:");
+//  if (currentDirection == 1){
+////    Serial.print(Output_UP);
+//  }
+//  else{
+////    Serial.print(Output_DOWN);
+//  }
+////  Serial.print(", ");
+////  Serial.print("Dir:");
+  Serial.println(", ");
  
   
   //Adjust the motor based on the read handle sensor data.
