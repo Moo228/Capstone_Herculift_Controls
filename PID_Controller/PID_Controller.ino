@@ -121,8 +121,6 @@ void loop() {
     moveMotor(DOWN, output_DOWN);
   }
   
-  // myPID.Compute();
-
   //Serial Output
   Serial.print("Load:");
   Serial.print(load_scale_reading, 3);
