@@ -30,9 +30,6 @@
 //Pin for strain gauge amplifier for the load. Pin 17 corresponds to pin A3.
 #define INPUT_PIN_LOAD 17
 
-// #define MAX_MOTOR_PWM 150
-// #define MIN_MOTOR_PWM 20
-
 //Define a number to use as the scaled value of the load tension.
 #define WEIGHT_ASSIST_FACTOR 0.75
 
