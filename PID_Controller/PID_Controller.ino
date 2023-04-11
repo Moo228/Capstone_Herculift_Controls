@@ -96,7 +96,7 @@ void setup() {
   
   //Initialize the variables we're linked to
   input = tension_error;
-  setpoint = 0;
+  setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
   //Turn the PID on
   myPID_UP.SetMode(AUTOMATIC);
@@ -110,6 +110,8 @@ void loop() {
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
 
   input = tension_error;
+  setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
+
   if (tension_error > 0) {
     myPID_UP.Compute();
     moveMotor(UP, output_UP);
