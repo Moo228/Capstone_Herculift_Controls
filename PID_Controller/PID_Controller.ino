@@ -43,8 +43,6 @@ double load_scale_reading; // load cell value
 double cable_scale_reading; // load cell value
 double tension_error; // our defined error value
 
-int currentDirection;
-
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
 
@@ -118,13 +116,10 @@ void loop() {
   if (tension_error > 0) {
     myPID_UP.Compute();
     moveMotor(UP, output_UP);
-    currentDirection = 1;
-    
   }
   else {
     myPID_DOWN.Compute();
     moveMotor(DOWN, output_DOWN);
-    currentDirection = -1;
   }
   
   // myPID.Compute();
