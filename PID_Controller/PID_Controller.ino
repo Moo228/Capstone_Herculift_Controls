@@ -150,3 +150,23 @@ void loop() {
 double calculateError(double scaledTensionHandle, double tensionCable) {
   return WEIGHT_ASSIST_FACTOR * scaledTensionHandle - tensionCable;
 }
+
+void moveMotor(MotorMotion direction, int dutyCycle) {
+    switch (direction) {
+      case UP:
+        //When going UP put the direction pin of the motor control driver LOW.
+        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
+        break;
+      case DOWN:
+        //When going UP put the direction pin of the motor control driver HIGH.
+        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
+        break;
+      case NONE:
+        //The driver naturally pulls the pin high so put the direction pin HIGH.
+        analogWrite(MOTOR_PWM_INPUT_PIN, 0);
+        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
+        break;
+    }
+}
