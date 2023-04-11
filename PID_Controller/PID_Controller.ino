@@ -68,6 +68,9 @@ double calculateError(double scaledTensionHandle, double tensionCable);
 //  dutyCycle- specify the duty cycle to run the motors at.
 void moveMotor(MotorMotion direction, int dutyCycle);
 
+//This function uses the value of calculatedError() to map the value of 
+void computeAndMove(double tension_error)
+
 /****************************************Main****************************************/
 
 void setup() {
@@ -163,4 +166,15 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
         digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
         break;
     }
+}
+
+void computeAndMove(double tension_error) {
+  if (tension_error > 0) {
+    myPID_UP.Compute();
+    moveMotor(UP, output_up);
+  }
+  else {
+    myPID_DOWN.Compute();
+    moveMotor(DOWN, output_down);
+  }
 }
