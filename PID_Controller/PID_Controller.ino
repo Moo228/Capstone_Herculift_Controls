@@ -62,6 +62,12 @@ PID myPID_DOWN(&input, &output_down, &setpoint, kp_down, ki_down, kd_down, REVER
 //  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
 double calculateError(double scaledTensionHandle, double tensionCable);
 
+//This function wraps the logic of motor control into a simple command.
+//Parameters:
+//  direction- uses the MotorMotion enum to specify UP, DOWN, or NONE.
+//  dutyCycle- specify the duty cycle to run the motors at.
+void moveMotor(MotorMotion direction, int dutyCycle);
+
 /****************************************Main****************************************/
 
 void setup() {
