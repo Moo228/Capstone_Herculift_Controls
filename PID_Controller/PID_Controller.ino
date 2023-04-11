@@ -44,13 +44,14 @@ double tension_error; // our defined error value
 enum MotorMotion{UP, DOWN, NONE};
 
 //Define the variables we'll be connecting to
-double setpoint, input, output_UP, output_DOWN;
+double setpoint, input, output_up, output_down;
 
 //Specify the links and initial tuning parameters
-double Kp_Up=.5, Kd_Up=0.0, Ki_Up=0.0;
-double Kp_Down=.5, Kd_Down=0.0, Ki_Down=0.0;
-PID myPID_UP(&Input, &Output_UP, &Setpoint, Kp_Up, Ki_Up, Kd_Up, DIRECT);
-PID myPID_DOWN(&Input, &Output_DOWN, &Setpoint, Kp_Down, Ki_Down, Kd_Down, REVERSE);
+double kp_up=.5, kd_up=0.0, ki_up=0.0;
+double kp_down=.5, kd_down=0.0, ki_down=0.0;
+PID myPID_UP(&input, &output_up, &setpoint, kp_up, ki_up, kd_up, DIRECT);
+PID myPID_DOWN(&input, &output_down, &setpoint, kp_down, ki_down, kd_down, REVERSE);
+
 /****************************************Function Declarations****************************************/
 
 //This function simply calculates the difference between the tension measured by the load and the tension measured by the cable. 
@@ -60,12 +61,6 @@ PID myPID_DOWN(&Input, &Output_DOWN, &Setpoint, Kp_Down, Ki_Down, Kd_Down, REVER
 //  scaledTensionHandle- A double to hold the scaled value read in by the force sensor attatched to the load.
 //  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
 double calculateError(double scaledTensionHandle, double tensionCable);
-
-//A function that takes in the error in load and cable tension and converts that into a PWM value for the L298N motor controller.
-//It returns an enumerated type that allows for diagnosis of which part of the function is being called.
-//Parameters:
-//  errorVal- the value returned from calculateError().
-enum MovementRegime errorToPWM(double errorVal);
 
 /****************************************Main****************************************/
 
@@ -93,7 +88,7 @@ void setup() {
   load_scale_reading = analogRead(INPUT_PIN_LOAD);
   cable_scale_reading = analogRead(INPUT_PIN_CABLE);
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
-  
+
   //Initialize the variables we're linked to
   input = tension_error;
   setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
@@ -112,13 +107,14 @@ void loop() {
   input = tension_error;
   setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
+  //Refactor?
   if (tension_error > 0) {
     myPID_UP.Compute();
-    moveMotor(UP, output_UP);
+    moveMotor(UP, output_up);
   }
   else {
     myPID_DOWN.Compute();
-    moveMotor(DOWN, output_DOWN);
+    moveMotor(DOWN, output_down);
   }
   
   //Serial Output
