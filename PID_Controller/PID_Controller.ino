@@ -59,7 +59,6 @@ PID myPID_DOWN(&input, &output_down, &setpoint, kp_down, ki_down, kd_down, REVER
 
 //This function simply calculates the difference between the tension measured by the load and the tension measured by the cable. 
 //In other words, the error is the difference between the desired tension (cable value) and the actual tension (scaled load value).
-//The value read by the tension sensor in the handle is scaled down before being passed into this function.
 //Parameters:
 //  scaledTensionHandle- A double to hold the scaled value read in by the force sensor attatched to the load.
 //  tensionCable- A double to hold the value read in by the force sensor attatched to the cable.
@@ -71,8 +70,28 @@ double calculateError(double scaledTensionHandle, double tensionCable);
 //  dutyCycle- specify the duty cycle to run the motors at.
 void moveMotor(MotorMotion direction, int dutyCycle);
 
-//This function uses the value of calculatedError() to map the value of 
-void computeAndMoveMotor(double tension_error)
+//A function which defines the direction of the motor based upon the value of the error in the strain gauges.
+//Parameters:
+//  tensionError- the error value when comparing the strain gauge values.
+MotorMotion setMotorDirection(double tensionError);
+
+//This function tells the respective PID controller to compute its value based upon the updated information
+//the motor is then moved in the appropriate direction at the calculated speed.
+//Parameters:
+//  direction- Specifies whether we are using either the 'up' PID controller or 'down' as well as the motor's direction
+void computeAndMoveMotor(MotorMotion direction);
+
+//A function that encapsulates the values we'd like to keep track of on the serial monitor.
+//Parameters:
+//  loadRead- the load side strain gauge value
+//  cableRead- the cable side strain gauge value
+//  tensionError- the output of calculateError()
+//  outputUp- the output of myPID_up()
+//  outputDown- the output of myPID_down()
+//  direction- the output of setMotorDirection() used to specify whether outputUp or outputDown should be printed
+void serialPrintDebug(double loadRead,   double cableRead, 
+                      double tensionError, double outputUp, 
+                      double outputDown, MotorMotion direction);
 
 /****************************************Main****************************************/
 
@@ -116,25 +135,23 @@ void loop() {
   cable_scale_reading = analogRead(INPUT_PIN_CABLE);
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
   
-  //Reinitialize the values for PID 
+  //Reinitialize the values for PID controllers
   input = tension_error;
   setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
-  //Perform the PID computations and move the motor accordingly
-  MotorMotion currentMotorDirection = computeAndMoveMotor(tension_error);
+  //define which way the motor should move
+  MotorMotion currentMotorDirection = setMotorDirection(tension_error);
+
+  //Perform the PID computation and move the motor accordingly
+  computeAndMoveMotor(tension_error);
   
   //Serial Output
-  Serial.print("Load:");
-  Serial.print(load_scale_reading, 3);
-  Serial.print(", ");
-  Serial.print("Cable:");
-  Serial.print(cable_scale_reading, 3);
-  Serial.print(", ");
-  Serial.print("Error:");
-  Serial.print(tension_error);
-  // Serial.print(", ");
-  // Serial.print("Output:");
-  // Serial.println(output);
+  serialPrintDebug(load_scale_reading, 
+                   cable_scale_reading, 
+                   tension_error,      
+                   output_up, 
+                   output_down,        
+                   currentMotorDirection);
 
   delayMicroseconds(100); // Insert a delay to set the sample rate
 }
