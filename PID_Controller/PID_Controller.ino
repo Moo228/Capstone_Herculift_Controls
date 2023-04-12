@@ -13,6 +13,9 @@
 
 #include <PID_v1.h>
 
+/****************************************Debug****************************************/
+
+
 /****************************************Macros****************************************/
 
 //Per the Arduino Nano documentation, pins 3, 5, 6, 9, 10, and 11 support pulse width modulation (PWM).
@@ -69,7 +72,7 @@ double calculateError(double scaledTensionHandle, double tensionCable);
 void moveMotor(MotorMotion direction, int dutyCycle);
 
 //This function uses the value of calculatedError() to map the value of 
-void computeAndMove(double tension_error)
+void computeAndMoveMotor(double tension_error)
 
 /****************************************Main****************************************/
 
@@ -108,23 +111,17 @@ void setup() {
 }
 
 void loop() {
-  //Read and normalize the values from the strain gauges. A decimal percentage of 
+  //Read and normalize the values from the strain gauges.
   load_scale_reading = analogRead(INPUT_PIN_LOAD);
   cable_scale_reading = analogRead(INPUT_PIN_CABLE);
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
-
+  
+  //Reinitialize the values for PID 
   input = tension_error;
   setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
-  //Refactor?
-  if (tension_error > 0) {
-    myPID_UP.Compute();
-    moveMotor(UP, output_up);
-  }
-  else {
-    myPID_DOWN.Compute();
-    moveMotor(DOWN, output_down);
-  }
+  //Perform the PID computations and move the motor accordingly
+  MotorMotion currentMotorDirection = computeAndMoveMotor(tension_error);
   
   //Serial Output
   Serial.print("Load:");
@@ -139,7 +136,7 @@ void loop() {
   // Serial.print("Output:");
   // Serial.println(output);
 
-  delayMicroseconds(100); // Wait and increase the sampling rate
+  delayMicroseconds(100); // Insert a delay to set the sample rate
 }
 
 /****************************************Function Definitions****************************************/
@@ -149,32 +146,72 @@ double calculateError(double scaledTensionHandle, double tensionCable) {
 }
 
 void moveMotor(MotorMotion direction, int dutyCycle) {
-    switch (direction) {
-      case UP:
-        //When going UP put the direction pin of the motor control driver LOW.
-        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
-        digitalWrite(MOTOR_DIRECTION_PIN, LOW);
-        break;
-      case DOWN:
-        //When going UP put the direction pin of the motor control driver HIGH.
-        analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
-        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
-        break;
-      case NONE:
-        //The driver naturally pulls the pin high so put the direction pin HIGH.
-        analogWrite(MOTOR_PWM_INPUT_PIN, 0);
-        digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
-        break;
-    }
+  switch (direction) {
+    case UP:
+      //When going UP put the direction pin of the motor control driver LOW.
+      analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+      digitalWrite(MOTOR_DIRECTION_PIN, LOW);
+      break;
+    case DOWN:
+      //When going UP put the direction pin of the motor control driver HIGH.
+      analogWrite(MOTOR_PWM_INPUT_PIN, dutyCycle);
+      digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
+      break;
+    case NONE:
+      //The driver naturally pulls the pin high so put the direction pin HIGH.
+      analogWrite(MOTOR_PWM_INPUT_PIN, 0);
+      digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
+      break;
+    default
+      break;
+  }
 }
 
-void computeAndMove(double tension_error) {
-  if (tension_error > 0) {
-    myPID_UP.Compute();
-    moveMotor(UP, output_up);
+MotorMotion setMotorDirection(double tensionError) {
+  (tensionError > 0) ? (return UP ) : (return DOWN);
+}
+
+void computeAndMoveMotor(MotorMotion direction) {
+  switch (direction) {
+    case UP:
+      myPID_UP.Compute();
+      moveMotor(UP, output_up);
+      break;
+    case DOWN:
+      myPID_DOWN.Compute();
+      moveMotor(DOWN, output_down);
+      break;
+    default
+      break;
   }
-  else {
-    myPID_DOWN.Compute();
-    moveMotor(DOWN, output_down);
+}
+
+void serialPrintDebug(double loadRead,   double cableRead, 
+                      double tensionError, double outputUp, 
+                      double outputDown, MotorMotion direction) {
+  //Note that there is no space after ':' in any of these statements
+  //This is for allowing the Arduino Serial Plotter to use these strings as a labels
+  Serial.print("Load:"); 
+  Serial.print(loadRead, 3);
+  Serial.print(", "); //Comma delimeter
+  Serial.print("Cable:");
+  Serial.print(cableRead, 3);
+  Serial.print(", ");
+  Serial.print("Error:");
+  Serial.print(tensionError);
+  Serial.print(", ");
+  Serial.print("Output:");
+
+  //Print the output of the currently used PID controller
+  switch (direction) {
+  case UP:
+    Serial.print(outputUp);
+    break;
+  case DOWN:
+    Serial.print(outputDown);
+  default:
+    break;
   }
+
+  Serial.println();
 }
