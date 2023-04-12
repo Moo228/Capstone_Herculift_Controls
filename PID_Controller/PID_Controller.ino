@@ -137,7 +137,7 @@ void loop() {
   tension_error = calculateError(load_scale_reading, cable_scale_reading);
   
   //Reinitialize the values for PID controllers
-  input = tension_error;
+  input = cable_scale_reading;
   setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
 
   //define which way the motor should move
