@@ -15,6 +15,7 @@
 
 /****************************************Debug****************************************/
 
+#define PRINT_DEBUG
 
 /****************************************Macros****************************************/
 
@@ -143,8 +144,9 @@ void loop() {
   MotorMotion currentMotorDirection = setMotorDirection(tension_error);
 
   //Perform the PID computation and move the motor accordingly
-  computeAndMoveMotor(tension_error);
+  computeAndMoveMotor(currentMotorDirection);
   
+#ifdef PRINT_DEBUG
   //Serial Output
   serialPrintDebug(load_scale_reading, 
                    cable_scale_reading, 
@@ -152,6 +154,7 @@ void loop() {
                    output_up, 
                    output_down,        
                    currentMotorDirection);
+#endif
 
   delayMicroseconds(100); // Insert a delay to set the sample rate
 }
@@ -179,13 +182,14 @@ void moveMotor(MotorMotion direction, int dutyCycle) {
       analogWrite(MOTOR_PWM_INPUT_PIN, 0);
       digitalWrite(MOTOR_DIRECTION_PIN, HIGH);
       break;
-    default
+    default:
       break;
   }
 }
 
 MotorMotion setMotorDirection(double tensionError) {
-  (tensionError > 0) ? (return UP ) : (return DOWN);
+  MotorMotion direction = (tensionError > 0) ? (UP) : (DOWN);
+  return direction;
 }
 
 void computeAndMoveMotor(MotorMotion direction) {
@@ -198,7 +202,7 @@ void computeAndMoveMotor(MotorMotion direction) {
       myPID_DOWN.Compute();
       moveMotor(DOWN, output_down);
       break;
-    default
+    default:
       break;
   }
 }
