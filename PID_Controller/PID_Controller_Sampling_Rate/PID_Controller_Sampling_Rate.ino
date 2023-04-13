@@ -15,7 +15,7 @@
 
 /****************************************Debug****************************************/
 
-//#define PRINT_DEBUG
+// #define PRINT_DEBUG
 
 /****************************************Macros****************************************/
 
@@ -40,22 +40,21 @@
 /****************************************Variables****************************************/
 
 //Define variables for load cell readings.
-double load_scale_reading; // load cell value
-double cable_scale_reading; // load cell value
-double tension_error; // our defined error value
+double loadScaleReading; // load cell value
+double cableScaleReading; // load cell value
+double tensionError; // our defined error value
 
 //Enum to simplify motor movement.
 enum MotorMotion{UP, DOWN, NONE};
 
 //Define the variables we'll be connecting to
-double setpoint, input, output_up, output_down;
+double setpoint, input, outputUp, outputDown;
 
 //Specify the links and initial tuning parameters
-double kp_up=.5, kd_up=0.0, ki_up=0.0;
-double kp_down=.5, kd_down=0.0, ki_down=0.0;
-PID myPID_UP(&input, &output_up, &setpoint, kp_up, ki_up, kd_up, DIRECT);
-PID myPID_DOWN(&input, &output_down, &setpoint, kp_down, ki_down, kd_down, REVERSE);
-
+double kpUp=.5, kdUp=0.0, kiUp=0.0;
+double kpDown=.5, kdDown=0.0, kiDown=0.0;
+PID myPID_UP(&input, &outputUp, &setpoint, kpUp, kiUp, kdUp, DIRECT);
+PID myPID_DOWN(&input, &outputDown, &setpoint, kpDown, kiDown, kdDown, REVERSE);
 
 // Set the time duration for counting in seconds
 const int countDuration = 10;
@@ -65,6 +64,7 @@ unsigned long startTime = 0;
 unsigned long lastTime = 0;
 unsigned long elapsedTime = 0;
 unsigned long counter = 0;
+
 /****************************************Function Declarations****************************************/
 
 //This function simply calculates the difference between the tension measured by the load and the tension measured by the cable. 
@@ -126,77 +126,70 @@ void setup() {
   analogReference(INTERNAL); // Set the internal reference voltage to 1.1V to increase resolution on force sensors
 
   //Read and normalize the values from the strain gauges.
-  load_scale_reading = analogRead(INPUT_PIN_LOAD);
-  cable_scale_reading = analogRead(INPUT_PIN_CABLE);
-  tension_error = calculateError(load_scale_reading, cable_scale_reading);
+  loadScaleReading = analogRead(INPUT_PIN_LOAD);
+  cableScaleReading = analogRead(INPUT_PIN_CABLE);
+  tensionError = calculateError(loadScaleReading, cableScaleReading);
 
   //Initialize the variables we're linked to
-  input = tension_error;
-  setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
+  input = tensionError;
+  setpoint = loadScaleReading * WEIGHT_ASSIST_FACTOR;
 
   //Turn the PID on
   myPID_UP.SetMode(AUTOMATIC);
   myPID_DOWN.SetMode(AUTOMATIC);
-
-  // Record the start time when the loop begins
-  startTime = millis();
-
-  // Reset the counter
-  counter = 0;
 }
 
 void loop() {
   //Read and normalize the values from the strain gauges.
-  load_scale_reading = analogRead(INPUT_PIN_LOAD);
-  cable_scale_reading = analogRead(INPUT_PIN_CABLE);
-  tension_error = calculateError(load_scale_reading, cable_scale_reading);
+  loadScaleReading = analogRead(INPUT_PIN_LOAD);
+  cableScaleReading = analogRead(INPUT_PIN_CABLE);
+  tensionError = calculateError(loadScaleReading, cableScaleReading);
   
   //Reinitialize the values for PID controllers
-  input = cable_scale_reading;
-  setpoint = load_scale_reading * WEIGHT_ASSIST_FACTOR;
+  input = cableScaleReading;
+  setpoint = loadScaleReading * WEIGHT_ASSIST_FACTOR;
 
   //define which way the motor should move
-  MotorMotion currentMotorDirection = setMotorDirection(tension_error);
+  MotorMotion currentMotorDirection = setMotorDirection(tensionError);
 
   //Perform the PID computation and move the motor accordingly
   computeAndMoveMotor(currentMotorDirection);
   
 #ifdef PRINT_DEBUG
   //Serial Output
-  serialPrintDebug(load_scale_reading, 
-                   cable_scale_reading, 
-                   tension_error,      
-                   output_up, 
-                   output_down,        
+  serialPrintDebug(loadScaleReading, 
+                   cableScaleReading, 
+                   tensionError,      
+                   outputUp, 
+                   outputDown,        
                    currentMotorDirection);
 #endif
 
   delayMicroseconds(50); // Insert a delay to set the sample rate
 
-// Increment the counter
-counter++;
+  // Increment the counter
+  counter++;
 
-    if (counter >= 1000){
-      // Record the current time
-      unsigned long currentTime = millis();
+  if (counter >= 1000){
+    // Record the current time
+    unsigned long currentTime = millis();
+
+    // Calculate the elapsed time
+    elapsedTime = currentTime - startTime;
+
+    // Print the counter and elapsed time
+    Serial.print("Counter: ");
+    Serial.print(counter);
+    Serial.print(", Elapsed Time: ");
+    Serial.print(elapsedTime);
+    Serial.println(" ms");
+
+    // Record the start time when the loop begins
+    startTime = millis();
   
-      // Calculate the elapsed time
-      elapsedTime = currentTime - startTime;
-  
-      // Print the counter and elapsed time
-      Serial.print("Counter: ");
-      Serial.print(counter);
-      Serial.print(", Elapsed Time: ");
-      Serial.print(elapsedTime);
-      Serial.println(" ms");
-
-      // Record the start time when the loop begins
-      startTime = millis();
-    
-      // Reset the counter
-      counter = 0;
-    }
-
+    // Reset the counter
+    counter = 0;
+  }
 }
 
 /****************************************Function Definitions****************************************/
@@ -236,11 +229,11 @@ void computeAndMoveMotor(MotorMotion direction) {
   switch (direction) {
     case UP:
       myPID_UP.Compute();
-      moveMotor(UP, output_up);
+      moveMotor(UP, outputUp);
       break;
     case DOWN:
       myPID_DOWN.Compute();
-      moveMotor(DOWN, output_down);
+      moveMotor(DOWN, outputDown);
       break;
     default:
       break;
